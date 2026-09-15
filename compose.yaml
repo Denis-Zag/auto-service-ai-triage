@@ -1,0 +1,12 @@
+services:
+  api:
+    build:
+      context: .
+    image: auto-service-ai-triage:local
+    container_name: auto-service-ai-triage
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data

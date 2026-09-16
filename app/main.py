@@ -21,9 +21,9 @@ rate_limiter = ClientRateLimiter(settings.requests_per_minute)
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    """Подготавливает локальное хранилище перед запуском API."""
+    """Подготавливает выбранное хранилище перед запуском API."""
 
-    initialize_database(settings.database_path)
+    initialize_database(settings)
     yield
 
 
@@ -77,6 +77,6 @@ async def triage(request: TriageRequest) -> TriageResponse:
         logger.exception("Ошибка LLM: error_type=%s", error_name)
         response = fallback_response()
 
-    ticket_id = save_ticket(settings.database_path, request, response, error_name)
+    ticket_id = save_ticket(settings, request, response, error_name)
     logger.info("Обращение сохранено: ticket_id=%d", ticket_id)
     return response

@@ -1,14 +1,36 @@
 import sqlite3
-from pathlib import Path
+from typing import Any
 
+from app.config import Settings
 from app.schemas import TriageRequest, TriageResponse
 
 
-def initialize_database(database_path: Path) -> None:
-    """Создаёт каталог и таблицу журнала, если их ещё нет."""
+def connect_database(settings: Settings) -> Any:
+    """Открывает локальную SQLite или удалённую Turso по настройкам."""
 
-    database_path.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(database_path) as connection:
+    if settings.database_backend == "turso":
+        if not settings.turso_database_url or not settings.turso_auth_token:
+            raise RuntimeError(
+                "Для DATABASE_BACKEND=turso нужны TURSO_DATABASE_URL "
+                "и TURSO_AUTH_TOKEN"
+            )
+
+        import libsql
+
+        return libsql.connect(
+            database=settings.turso_database_url,
+            auth_token=settings.turso_auth_token,
+        )
+
+    settings.database_path.parent.mkdir(parents=True, exist_ok=True)
+    return sqlite3.connect(settings.database_path)
+
+
+def initialize_database(settings: Settings) -> None:
+    """Создаёт таблицу журнала в выбранном хранилище, если её ещё нет."""
+
+    connection = connect_database(settings)
+    try:
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS tickets (
@@ -25,17 +47,21 @@ def initialize_database(database_path: Path) -> None:
             )
             """
         )
+        connection.commit()
+    finally:
+        connection.close()
 
 
 def save_ticket(
-    database_path: Path,
+    settings: Settings,
     request: TriageRequest,
     response: TriageResponse,
     error: str | None = None,
 ) -> int:
     """Сохраняет результат обработки и возвращает номер записи."""
 
-    with sqlite3.connect(database_path) as connection:
+    connection = connect_database(settings)
+    try:
         cursor = connection.execute(
             """
             INSERT INTO tickets (
@@ -54,4 +80,7 @@ def save_ticket(
                 error,
             ),
         )
+        connection.commit()
         return int(cursor.lastrowid)
+    finally:
+        connection.close()

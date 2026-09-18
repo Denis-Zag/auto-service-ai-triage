@@ -1,0 +1,46 @@
+name: Database backup
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: database-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Turso to SQLite
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+      TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install backup dependency
+        run: python -m pip install libsql==0.1.11
+
+      - name: Create and verify SQLite backup
+        run: python scripts/backup_turso.py --output backup/triage.db
+
+      - name: Store backup for 14 days
+        uses: actions/upload-artifact@v4
+        with:
+          name: turso-backup-${{ github.run_number }}-${{ github.run_attempt }}
+          path: backup/triage.db
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 6

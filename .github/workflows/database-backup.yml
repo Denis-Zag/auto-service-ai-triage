@@ -37,7 +37,7 @@ jobs:
         run: python scripts/backup_turso.py --output backup/triage.db
 
       - name: Store backup for 14 days
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: turso-backup-${{ github.run_number }}-${{ github.run_attempt }}
           path: backup/triage.db
